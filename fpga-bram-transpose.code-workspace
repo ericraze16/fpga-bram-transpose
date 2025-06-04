@@ -1,0 +1,27 @@
+{
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "files.associations": {
+            "*.v": "verilog",
+            "*.sv": "systemverilog",
+            "*.vh": "verilog",
+            "*.svh": "systemverilog"
+        },
+        "verilog.linting.linter": "verilator",
+        "verilog.formatting.formatter": "verible-verilog-format",
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/usr/bin/python3"
+    },
+    "extensions": {
+        "recommendations": [
+            "mshr-h.veriloghdl",
+            "teros-technology.teroshdl",
+            "ms-python.python",
+            "ms-vscode.makefile-tools"
+        ]
+    }
+}

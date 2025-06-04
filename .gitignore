@@ -1,0 +1,44 @@
+# Build outputs
+build/
+*.log
+*.jou
+*.str
+*.rpt
+*.dcp
+*.bit
+*.ltx
+
+# Simulation outputs
+*.vcd
+*.shm
+*.dsn
+*.wdb
+*.wlf
+transcript
+work/
+*.vstf
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/settings.json
+
+# Vendor tool files
+*.cache/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.srcs/
+*.gen/
+.Xil/
