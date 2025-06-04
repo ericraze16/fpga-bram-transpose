@@ -2,6 +2,8 @@
 Research + developing in-memory (BRAM) transpose hardware
 
 ## Project Structure
+
+```plaintext
 fpga-transpose-research/
 ├── rtl/                    # RTL source files
 │   ├── baseline/          # Conventional implementations
@@ -13,6 +15,8 @@ fpga-transpose-research/
 ├── results/               # Synthesis and implementation results
 ├── docs/                  # Documentation and research notes
 └── build/                 # Build artifacts (ignored by git)
+```
+
 
 ## Quick Start
 1. Install dependencies: `make install-deps`
