@@ -18,7 +18,7 @@ fpga-transpose-research/
 ```
 
 
-## Quick Start
+## Quick Start (OUTDATED)
 1. Install dependencies: `make install-deps`
 2. Run simulation: `make sim`
 3. View waveforms: `make waves`
@@ -29,4 +29,4 @@ fpga-transpose-research/
 - Python 3.8+
 
 ## Usage
-See [docs/getting-started.md](docs/getting-started.md) for detailed setup instructions.
+See [docs/getting-started.md](docs/getting-started.md) for detailed setup instructions. (OUTDATED)
