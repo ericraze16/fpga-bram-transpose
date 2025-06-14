@@ -15,7 +15,7 @@ module basic_circulant (
     input wire read_en,
     input wire [1:0] read_row,
     input wire [1:0] read_col,
-    output wire [7:0] data_out
+    output reg [7:0] data_out
 );
 
 // Define memories (compiled into BRAMs)
@@ -42,25 +42,20 @@ always @(posedge clk) begin
             2'b01: col1_mem[write_row] <= data_in;
             2'b10: col2_mem[write_row] <= data_in;
             2'b11: col3_mem[write_row] <= data_in;
-            // Add other cases as needed
         endcase 
     end
 end
 
 // Read transposed logic
-reg [7:0] read_data;
-always @(*) begin
-    // read_data = 8'b0; // Default value
+always @(posedge clk) begin
     if (read_en) begin
         case (circulant_col_addr(read_row, read_col))
-            2'b00: read_data = col0_mem[read_row];
-            2'b01: read_data = col1_mem[read_row];
-            2'b10: read_data = col2_mem[read_row];
-            2'b11: read_data = col3_mem[read_row];
+            2'b00: data_out <= col0_mem[read_row];
+            2'b01: data_out <= col1_mem[read_row];
+            2'b10: data_out <= col2_mem[read_row];
+            2'b11: data_out <= col3_mem[read_row];
         endcase
     end
 end
-
-assign data_out = read_data;
 
 endmodule
