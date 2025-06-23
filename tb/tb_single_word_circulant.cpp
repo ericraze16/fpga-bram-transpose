@@ -59,8 +59,8 @@ int main(int argc, char** argv) {
     for (int row = 0; row < MATRIX_DIM; row++) {
         // Create a word with distinguishable values for each column
         // Format: Row(row+1)Col(col+1) -> 11,12,13,14 for row 0
-        uint8_t col_vals[4];
-        for (int col = 0; col < 4; col++) {
+        uint8_t col_vals[COLS_PER_WORD];
+        for (int col = 0; col < COLS_PER_WORD; col++) {
             col_vals[col] = 10 * (row + 1) + (col + 1);
         }
         
@@ -73,12 +73,28 @@ int main(int argc, char** argv) {
         cout << "   Row " << row << " word: 0x" << hex << setfill('0') << setw(8) << test_word;
         cout << " -> [" << dec;
         for (int i = 0; i < 4; i++) {
-            cout << (int)col_vals[i];
+            cout << (int)col_vals[(row + i) % COLS_PER_WORD];
             if (i < 3) cout << ", ";
         }
         cout << "]" << endl;
         
         tick();
+    }
+
+    // Print data pretty
+    cout << endl << "Written words (non-circulant data layout):" << endl;
+    for (int row = 0; row < MATRIX_DIM; row++) {
+        uint8_t col_vals[COLS_PER_WORD];
+        for (int col = 0; col < COLS_PER_WORD; col++) {
+            col_vals[col] = 10 * (row + 1) + (col + 1);
+        }
+        cout << "   Row " << row;
+        cout << " -> [" << dec;
+        for (int i = 0; i < 4; i++) {
+            cout << (int)col_vals[i];
+            if (i < 3) cout << ", ";
+        }
+        cout << "]" << endl;
     }
     dut->write_en = 0;
     
@@ -87,17 +103,20 @@ int main(int argc, char** argv) {
     tick();
 
     // 2. Test regular reads (should get back original data, but transposed due to circulant storage)
-    cout << "\n2. Reading back data (note: this will be transposed due to circulant storage):" << endl;
+    cout << "\n2. Transposed data (note: this will be circulant):" << endl;
     dut->read_en = 1;
+
+    uint32_t read_words[MATRIX_DIM];
     
     for (int row = 0; row < MATRIX_DIM; row++) {
-        dut->read_row = row;
-        dut->read_col = 0; // Read full word starting at column 0
+        dut->read_col = (row % COLS_PER_WORD); // The start chunk gets indented 1 chunk each row down
+        dut->read_row = row; // Read full word starting at column 0
         
         tick(); // Clock the read
         tick(); // Extra cycle for read latency
         
         uint32_t read_word = dut->data_out;
+        read_words[row] = read_word; // Store for later verification
         cout << "   Row " << row << " read: 0x" << hex << setfill('0') << setw(8) << read_word;
         cout << " -> [" << dec;
         for (int i = 0; i < 4; i++) {
@@ -110,6 +129,19 @@ int main(int argc, char** argv) {
     dut->read_en = 0;
     tick();
     tick();
+
+    // Print the read words for verification
+    cout << "\nRead words (non-circulant layout):" << endl;
+    for (int row = 0; row < MATRIX_DIM; row++) {
+        cout << "   Row " << row;
+        cout << " -> [" << dec;
+        for (int i = 0; i < 4; i++) {
+            cout << (int)extract_col(read_words[row], (i + MATRIX_DIM-row) % COLS_PER_WORD);
+            if (i < 3) cout << ", ";
+        }
+        cout << "]" << endl;
+    }
+    /*
 
     // 3. Test reading with different starting columns to verify chunking
     cout << "\n3. Testing reads with different starting columns:" << endl;
@@ -218,7 +250,7 @@ int main(int argc, char** argv) {
     tick();
     
     cout << "   Wrote 0xDEADBEEF, read back 0x" << hex << setfill('0') << setw(8) << dut->data_out << dec << endl;
-    
+    */
     dut->read_en = 0;
     tick();
     tick();
