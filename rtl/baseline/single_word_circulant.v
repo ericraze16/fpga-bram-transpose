@@ -36,7 +36,7 @@ function [ADDR_LEN-1:0] circulant_col_addr;
     input [ADDR_LEN-1:0] col_offset; // chunk start
     begin
         // Shift each row right by 1 more column, handle wrap-around
-        circulant_col_addr = (row + base_col + col_offset) & ADDR_LEN'(ADDR_MASK);
+        circulant_col_addr = (row + base_col + col_offset) & ADDR_MASK;
     end
 endfunction
 
@@ -63,7 +63,7 @@ always @(posedge clk) begin
         for (r_chunk = 0; r_chunk < COLS_PER_WORD; r_chunk = r_chunk + 1) begin
             s_r_col = circulant_col_addr(read_row, read_col, r_chunk[ADDR_LEN-1:0]);
             data_out[r_chunk * COL_WIDTH +: COL_WIDTH] <= col_mem[current_r_row][s_r_col];
-            current_r_row = (current_r_row + 1'b1) & ADDR_LEN'(ADDR_MASK); // increment row for next chunk
+            current_r_row = (current_r_row + 1'b1) & ADDR_MASK; // increment row for next chunk
         end
     end
 end
