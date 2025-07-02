@@ -160,55 +160,6 @@ int main(int argc, char** argv) {
     dut->barrel_shift_en = 0;
     tick();
     tick();
-
-    /*
-
-    // 4. Verification and comparison
-    cout << "\n4. VERIFICATION:" << endl;
-    cout << "\nExpected transpose matrix:" << endl;
-    for (int row = 0; row < MATRIX_DIM; row++) {
-        cout << "   Row " << row << " -> [" << dec;
-        for (int col = 0; col < COLS_PER_WORD; col++) {
-            cout << 10 * (col + 1) + (row + 1); // Transpose: original[col][row]
-            if (col < 3) cout << ", ";
-        }
-        cout << "]" << endl;
-    }
-
-    cout << "\nBarrel shifter verification:" << endl;
-    bool transpose_correct = true;
-    for (int row = 0; row < MATRIX_DIM; row++) {
-        cout << "   Row " << row << ": ";
-        bool row_correct = true;
-        for (int col = 0; col < COLS_PER_WORD; col++) {
-            uint8_t expected = 10 * (col + 1) + (row + 1);
-            uint8_t actual = extract_col(shifted_read_words[row], col);
-            if (expected != actual) {
-                row_correct = false;
-                transpose_correct = false;
-            }
-        }
-        cout << (row_correct ? "PASS" : "FAIL") << endl;
-    }
-
-    cout << "\nShift pattern analysis:" << endl;
-    for (int row = 0; row < MATRIX_DIM; row++) {
-        int shift_amount = (COLS_PER_WORD - row) % COLS_PER_WORD;
-        cout << "   Row " << row << " shift amount: " << shift_amount;
-        
-        // Verify the shift worked correctly
-        bool shift_correct = true;
-        for (int i = 0; i < COLS_PER_WORD; i++) {
-            uint8_t raw_val = extract_col(raw_read_words[row], i);
-            uint8_t shifted_val = extract_col(shifted_read_words[row], (i + shift_amount) % COLS_PER_WORD);
-            if (raw_val != shifted_val) {
-                shift_correct = false;
-                break;
-            }
-        }
-        cout << " -> " << (shift_correct ? "CORRECT" : "INCORRECT") << endl;
-    }
-    */
     
     cout << "\n=== TEST COMPLETE ===" << endl;
     // cout << "\nOverall result: " << (transpose_correct ? "TRANSPOSE SUCCESSFUL" : "TRANSPOSE FAILED") << endl;
