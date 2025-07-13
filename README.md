@@ -19,14 +19,10 @@ fpga-transpose-research/
 
 
 ## Quick Start (OUTDATED)
-1. Install dependencies: `make install-deps`
-2. Run simulation: `make sim`
-3. View waveforms: `make waves`
+1. Install verilator
+2. Compile RTL into object files: `make run_verilator`
+3. Build executable: `make build`
+4. Run `make run`
 
 ## Dependencies
 - Verilator
-- GTKWave
-- Python 3.8+
-
-## Usage
-See [docs/getting-started.md](docs/getting-started.md) for detailed setup instructions. (OUTDATED)
