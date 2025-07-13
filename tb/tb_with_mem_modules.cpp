@@ -109,14 +109,8 @@ public:
         
         dut->rTransAddr = transform_addr;
         dut->ren = 1;
-        
-        wait_cycles(3); 
-        
-      
-        // for(int i = 0; i < 3; i++) {
-        //     std::cout << "rTransAddr: " << (int)dut->rTransAddr << std::endl;
-        //     posedge();
-        // }
+
+        wait_cycles(6); 
         
         uint32_t result = dut->rTransData;
         print_row(result, "  Result");
@@ -143,7 +137,7 @@ public:
         
         
         // Wait for writes to settle
-        wait_cycles(2);
+        wait_cycles(10);
         
 
         // Read back with different transform addresses
@@ -220,7 +214,7 @@ public:
         std::cout << "Row Width: " << ROW_WIDTH << " bits" << std::endl;
         
         // Reset and initialize
-        wait_cycles(5);
+        wait_cycles(10);
         
         test_basic_operations();
         // test_circulant_property();
@@ -241,34 +235,3 @@ int main(int argc, char** argv) {
     // Clean up
     return 0;
 }
-
-// Makefile content (save as Makefile):
-/*
-# Verilator Makefile for Circulant Barrel Shifter
-
-# Verilog source files
-VERILOG_SOURCES = circulant_barrel_shifter_v2.v bram_mem.v
-
-# Top module name
-TOP_MODULE = circulant_barrel_shifter_v2
-
-# C++ testbench
-CPP_TESTBENCH = testbench.cpp
-
-# Verilator flags
-VERILATOR_FLAGS = -Wall -Wno-UNUSED -Wno-UNOPTFLAT --cc --exe --build
-
-# Build target
-build: $(VERILOG_SOURCES) $(CPP_TESTBENCH)
-	verilator $(VERILATOR_FLAGS) --top-module $(TOP_MODULE) $(VERILOG_SOURCES) $(CPP_TESTBENCH) -o testbench
-
-# Run simulation
-run: build
-	./obj_dir/testbench
-
-# Clean build artifacts
-clean:
-	rm -rf obj_dir/
-
-.PHONY: build run clean
-*/
