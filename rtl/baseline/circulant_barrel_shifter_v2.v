@@ -25,11 +25,28 @@ reg [ADDR_LEN-1:0] r_waddr, r_rTransAddr;
 reg r_wen, r_ren;
 
 // Wires to interface with BRAM modules
-wire [MEM_WIDTH-1:0] bram_wdata [0:MATRIX_DIM-1]; 
-wire [ADDR_LEN-1:0] bram_waddr [0:MATRIX_DIM-1];
-wire bram_wen [0:MATRIX_DIM-1];
-wire [ADDR_LEN-1:0] bram_raddr [0:MATRIX_DIM-1];
-wire [COL_WIDTH-1:0] bram_rdata [0:MATRIX_DIM-1];
+reg [MEM_WIDTH-1:0] bram_wdata [0:MATRIX_DIM-1]; 
+reg [ADDR_LEN-1:0] bram_waddr [0:MATRIX_DIM-1];
+reg bram_wen [0:MATRIX_DIM-1];
+reg [ADDR_LEN-1:0] bram_raddr [0:MATRIX_DIM-1];
+reg [MEM_WIDTH-1:0] bram_rdata [0:MATRIX_DIM-1];
+
+// Internal registers for write logic
+// reg [MEM_WIDTH-1:0] int_bram_wdata [0:MATRIX_DIM-1];
+// reg [ADDR_LEN-1:0] int_bram_waddr [0:MATRIX_DIM-1];
+// reg int_bram_wen [0:MATRIX_DIM-1];
+// reg [ADDR_LEN-1:0] int_bram_raddr [0:MATRIX_DIM-1];
+
+// Connect internal signals to BRAM ports
+// genvar k;
+// generate
+//     for (k = 0; k < MATRIX_DIM; k = k + 1) begin : signal_conn
+//         assign bram_wdata[k] = int_bram_wdata[k];
+//         assign bram_waddr[k] = int_bram_waddr[k];
+//         assign bram_wen[k] = int_bram_wen[k];
+//         assign bram_raddr[k] = int_bram_raddr[k];
+//     end
+// endgenerate
 
 // Generate BRAM instances
 genvar mem_idx;
@@ -56,7 +73,7 @@ function [ADDR_LEN-1:0] circ_col_addr(
     input [ADDR_LEN-1:0] addr, //ie starting row
     input [ADDR_LEN-1:0] chunk_idx);
     begin
-        cir_col_addr = (addr + chunk_idx) & (MATRIX_DIM - 1); // Handle wrap-around
+        circ_col_addr = (addr + chunk_idx) & (MATRIX_DIM - 1); // Handle wrap-around
     end
 endfunction
 
@@ -66,7 +83,7 @@ endfunction
 // Handle writes
 // We want to register the input signals to the circulant shift calculation for timing
 integer w_chunk_idx;
-wire [ADDR_LEN-1:0] circ_wmem; // Handles circulant mem addressing
+reg [ADDR_LEN-1:0] circ_wmem; // Handles circulant mem addressing
 always @(posedge clk) begin
     r_wdata <= wdata;
     r_waddr <= waddr;
@@ -91,17 +108,17 @@ end
 // First, we want to set the read address:
 integer r_chunk_idx;
 always @(posedge clk) begin
-    r_rTransAddr <= raddr;
+    r_rTransAddr <= rTransAddr;
     r_ren <= ren;
     // Need to handle the start of the data being in an offset 
     // We need to read in a diagonal pattern starting at row=0, column=r_rTransAddr
-    if (r_ren) begin
-        for (integer r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-            bram_raddr[(r_rTransAddr+r_chunk_idx) & (MATRIX_DIM-1)] <= r_chunk_idx[ADDR_LEN-1:0]; // read offset diagonal
+   if (r_ren) begin
+        for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
+            bram_raddr[(r_rTransAddr + r_chunk_idx) & (MATRIX_DIM-1)] <= r_chunk_idx[ADDR_LEN-1:0];
         end
     end else begin
-        for (integer r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-            bram_raddr[r_chunk_idx] <= 0; // Disable read addresses if not reading
+        for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
+            bram_raddr[r_chunk_idx] <= 0;
         end
     end
 end
@@ -110,12 +127,13 @@ end
 // My concern is that this will happen 2 clock cycles after the read address is set - how 
 // to represent this latency?
 // For now, just collect the data
+reg [ADDR_LEN-1:0] circ_rMem;
 always @(posedge clk) begin
     // colect data from mems, will need to apply a shift to it
     // Need to rotate left by r_rTransAddr
     for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-        circ_rMem = circ_col_addr(r_rTransAddr, r_chunk)
-        r_rTransData[(r_chunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= bram_rdata[(r_rTransAddr + r_chunk_idx) & (MATRIX_DIM - 1)];
+        r_rTransData[(r_chunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= 
+            bram_rdata[(r_rTransAddr + r_chunk_idx) & (MATRIX_DIM - 1)];
     end
 end
 
