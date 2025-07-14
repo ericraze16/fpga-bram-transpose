@@ -29,24 +29,7 @@ reg [MEM_WIDTH-1:0] bram_wdata [0:MATRIX_DIM-1];
 reg [ADDR_LEN-1:0] bram_waddr [0:MATRIX_DIM-1];
 reg bram_wen [0:MATRIX_DIM-1];
 reg [ADDR_LEN-1:0] bram_raddr [0:MATRIX_DIM-1];
-reg [MEM_WIDTH-1:0] bram_rdata [0:MATRIX_DIM-1];
-
-// Internal registers for write logic
-// reg [MEM_WIDTH-1:0] int_bram_wdata [0:MATRIX_DIM-1];
-// reg [ADDR_LEN-1:0] int_bram_waddr [0:MATRIX_DIM-1];
-// reg int_bram_wen [0:MATRIX_DIM-1];
-// reg [ADDR_LEN-1:0] int_bram_raddr [0:MATRIX_DIM-1];
-
-// Connect internal signals to BRAM ports
-// genvar k;
-// generate
-//     for (k = 0; k < MATRIX_DIM; k = k + 1) begin : signal_conn
-//         assign bram_wdata[k] = int_bram_wdata[k];
-//         assign bram_waddr[k] = int_bram_waddr[k];
-//         assign bram_wen[k] = int_bram_wen[k];
-//         assign bram_raddr[k] = int_bram_raddr[k];
-//     end
-// endgenerate
+wire [MEM_WIDTH-1:0] bram_rdata [0:MATRIX_DIM-1];
 
 // Generate BRAM instances
 genvar mem_idx;
@@ -82,7 +65,7 @@ endfunction
 
 // Handle writes
 // We want to register the input signals to the circulant shift calculation for timing
-integer w_chunk_idx;
+integer w_chunk_idx, j;
 reg [ADDR_LEN-1:0] circ_wmem; // Handles circulant mem addressing
 always @(posedge clk) begin
     r_wdata <= wdata;
@@ -98,7 +81,7 @@ always @(posedge clk) begin
             bram_wen[circ_wmem] = 1'b1;
         end
     end else begin
-        for (integer j = 0; j < MATRIX_DIM; j = j + 1) begin
+        for (j = 0; j < MATRIX_DIM; j = j + 1) begin
             bram_wen[j] <= 1'b0; // Disable write enables if not writing
         end
     end
@@ -106,19 +89,19 @@ end
 
 // Handle distributing reads to BRAMs
 // First, we want to set the read address:
-integer r_chunk_idx;
+integer rchunk_idx;
 always @(posedge clk) begin
     r_rTransAddr <= rTransAddr;
     r_ren <= ren;
     // Need to handle the start of the data being in an offset 
-    // We need to read in a diagonal pattern starting at row=0, column=r_rTransAddr
+    // We need to read in a diagonal pattern starting at row=0, column=r_rTransAddr 
    if (r_ren) begin
-        for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-            bram_raddr[(r_rTransAddr + r_chunk_idx) & (MATRIX_DIM-1)] <= r_chunk_idx[ADDR_LEN-1:0];
+        for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
+            bram_raddr[(r_rTransAddr + rchunk_idx) & (MATRIX_DIM-1)] <= rchunk_idx[ADDR_LEN-1:0];
         end
     end else begin
-        for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-            bram_raddr[r_chunk_idx] <= 0;
+        for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
+            bram_raddr[rchunk_idx] <= 0;
         end
     end
 end
@@ -131,9 +114,9 @@ reg [ADDR_LEN-1:0] circ_rMem;
 always @(posedge clk) begin
     // colect data from mems, will need to apply a shift to it
     // Need to rotate left by r_rTransAddr
-    for (r_chunk_idx = 0; r_chunk_idx < MATRIX_DIM; r_chunk_idx = r_chunk_idx + 1) begin
-        r_rTransData[(r_chunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= 
-            bram_rdata[(r_rTransAddr + r_chunk_idx) & (MATRIX_DIM - 1)];
+    for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
+        r_rTransData[(rchunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= 
+            bram_rdata[(r_rTransAddr + rchunk_idx) & (MATRIX_DIM - 1)];
     end
 end
 

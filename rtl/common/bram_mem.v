@@ -1,6 +1,6 @@
 module bram_mem # (
     parameter DATAW = 8,
-    parameter DEPTH = 64,
+    parameter DEPTH = 4,
     parameter ADDRW = $clog2(DEPTH)
 )(
     input  clk,
@@ -11,7 +11,7 @@ module bram_mem # (
     output reg [DATAW-1:0] rdata
 );
 
-reg [DATAW-1:0] mem [0:DEPTH-1];
+(* ramstyle = "M20K" *) reg [DATAW-1:0] mem [0:DEPTH-1];
 
 reg [DATAW-1:0] r_wdata;
 reg [ADDRW-1:0] r_waddr, r_raddr;
