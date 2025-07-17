@@ -56,16 +56,13 @@ function [ADDR_LEN-1:0] circ_col_addr(
     input [ADDR_LEN-1:0] addr, //ie starting row
     input [ADDR_LEN-1:0] chunk_idx);
     begin
-        reg [ADDR_LEN-1:0] temp_addr; // to handle wrap-around
+        reg [ADDR_LEN:0] temp_addr; // temp_addr needs to be wide enough to handle overflow
+        // specifically, it needs to store 2 * matrix_dim in the worst case, so add an extra bit
         temp_addr = addr + chunk_idx;
         circ_col_addr = (temp_addr >= MATRIX_DIM) ? 
                         (temp_addr - (MATRIX_DIM)) : temp_addr;
-        // circ_col_addr = (addr + chunk_idx) & (MATRIX_DIM - 1); // Handle wrap-around
     end
 endfunction
-
-// TODO: Barrel shift logic
-
 
 // Handle writes - register input signals for write operations
 // We want to register the input signals to the circulant shift calculation for timing
@@ -126,7 +123,5 @@ always @(posedge clk) begin
         rTransData[(rchunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= bram_rdata[circ_rCollectMem];
     end
 end
-
-
 
 endmodule
