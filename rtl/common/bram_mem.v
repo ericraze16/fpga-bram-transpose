@@ -20,7 +20,7 @@ reg r_wen;
 integer i;
 initial begin
     for (i = 0; i < DEPTH; i = i + 1) begin
-        mem[i] <= 0;
+        mem[i] = 0;
     end
 end
 

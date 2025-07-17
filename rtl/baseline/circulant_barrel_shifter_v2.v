@@ -20,7 +20,7 @@ module circulant_barrel_shifter_v2 #(
 );
 
 // Registers for clocking the input signals
-reg [ROW_WIDTH-1:0] r_wdata, r_rTransData;
+reg [ROW_WIDTH-1:0] r_wdata;
 reg [ADDR_LEN-1:0] r_waddr, r_rTransAddr;
 reg r_wen, r_ren;
 
@@ -56,21 +56,28 @@ function [ADDR_LEN-1:0] circ_col_addr(
     input [ADDR_LEN-1:0] addr, //ie starting row
     input [ADDR_LEN-1:0] chunk_idx);
     begin
-        circ_col_addr = (addr + chunk_idx) & (MATRIX_DIM - 1); // Handle wrap-around
+        reg [ADDR_LEN-1:0] temp_addr; // to handle wrap-around
+        temp_addr = addr + chunk_idx;
+        circ_col_addr = (temp_addr >= MATRIX_DIM) ? 
+                        (temp_addr - (MATRIX_DIM)) : temp_addr;
+        // circ_col_addr = (addr + chunk_idx) & (MATRIX_DIM - 1); // Handle wrap-around
     end
 endfunction
 
 // TODO: Barrel shift logic
 
 
-// Handle writes
+// Handle writes - register input signals for write operations
 // We want to register the input signals to the circulant shift calculation for timing
-integer w_chunk_idx, j;
-reg [ADDR_LEN-1:0] circ_wmem; // Handles circulant mem addressing
 always @(posedge clk) begin
     r_wdata <= wdata;
     r_waddr <= waddr;
     r_wen <= wen;
+end
+
+integer w_chunk_idx, j;
+always @(*) begin
+    reg [ADDR_LEN-1:0] circ_wmem; // Handles circulant mem addressing
 
     // Using the registered values, distribute the writes to the BRAMs
     if (r_wen) begin
@@ -82,7 +89,7 @@ always @(posedge clk) begin
         end
     end else begin
         for (j = 0; j < MATRIX_DIM; j = j + 1) begin
-            bram_wen[j] <= 1'b0; // Disable write enables if not writing
+            bram_wen[j] = 1'b0; // Disable write enables if not writing
         end
     end
 end
@@ -90,14 +97,17 @@ end
 // Handle distributing reads to BRAMs
 // First, we want to set the read address:
 integer rchunk_idx;
+reg [ADDR_LEN-1:0] circ_rmem; // Handles circulant mem addressing
+
 always @(posedge clk) begin
     r_rTransAddr <= rTransAddr;
     r_ren <= ren;
     // Need to handle the start of the data being in an offset 
     // We need to read in a diagonal pattern starting at row=0, column=r_rTransAddr 
-   if (r_ren) begin
+    if (r_ren) begin
         for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
-            bram_raddr[(r_rTransAddr + rchunk_idx) & (MATRIX_DIM-1)] <= rchunk_idx[ADDR_LEN-1:0];
+            circ_rmem = circ_col_addr(r_rTransAddr, rchunk_idx);
+            bram_raddr[circ_rmem] <= rchunk_idx[ADDR_LEN-1:0];
         end
     end else begin
         for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
@@ -107,24 +117,16 @@ always @(posedge clk) begin
 end
 
 // Handle collecting read data from mems
-// My concern is that this will happen 2 clock cycles after the read address is set - how 
-// to represent this latency?
-// For now, just collect the data
-reg [ADDR_LEN-1:0] circ_rMem;
+reg [ADDR_LEN-1:0] circ_rCollectMem;
 always @(posedge clk) begin
-    // colect data from mems, will need to apply a shift to it
     // Need to rotate left by r_rTransAddr
+    reg [ADDR_LEN-1:0] circ_rCollectMem; // Handles circulant mem addressing
     for (rchunk_idx = 0; rchunk_idx < MATRIX_DIM; rchunk_idx = rchunk_idx + 1) begin
-        r_rTransData[(rchunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= 
-            bram_rdata[(r_rTransAddr + rchunk_idx) & (MATRIX_DIM - 1)];
+        circ_rCollectMem = circ_col_addr(r_rTransAddr, rchunk_idx);
+        rTransData[(rchunk_idx * MEM_WIDTH) +: MEM_WIDTH] <= bram_rdata[circ_rCollectMem];
     end
 end
 
-// Move read data to output at next clock cycle
-// Again, how do I handle the latency here (which signals are valid)?
-always @(posedge clk) begin
-    rTransData <= r_rTransData; // Clock the output to force timing analysis of output shifting
-    // Do I want an if/else here?
-end
+
 
 endmodule
