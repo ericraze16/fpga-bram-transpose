@@ -21,8 +21,9 @@ fpga-transpose-research/
 ## Quick Start (OUTDATED)
 1. Install verilator
 2. Compile RTL into object files: `make run_verilator`
-3. Build executable: `make build`
-4. Run `make run`
+  Use MATRIX_DIM=X to set the HW matrix size paramter. This must be set at compile time. The test bench must not try to write data larger than the HW size.
+4. Build executable: `make build`
+5. Run `make run`
 
 ## Dependencies
 - Verilator
