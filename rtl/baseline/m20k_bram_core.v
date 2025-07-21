@@ -1,154 +1,195 @@
-// M20K BRAM function model
-// Limited model, only simulates dual port access
-// Missing:
-// registering inputs/outputs
-// Different logical sizes
-// Assumes tdp mode can access full cell array
-
-// Work on:
-// logical data width/depths
-// start with shallowest / widest (512 x 40), 2k x 8 and 4k x 4
-// Physical width is 128 x 160
-// 512 x 40 isn't supported in tdp mode, but 2kx8 and 4kx4 are
+// M20K BRAM functional model
+// Supports dual port true dual-port mode
+// Supports set of logical widths
+// Physical organization: 128 rows × 160 columns (individual bit cells)
+// 
 
 module m20k_bram_core #(
     // Logical configuration parameters
-    parameter LOGICAL_DATA_WIDTH = 8,    // Logical data width (40, 8, 4)
-    parameter LOGICAL_DEPTH = 2048,       // Logical depth (512, 2k, 4k)
-    parameter LOGICAL_ADDR_WIDTH = log2(LOGICAL_DEPTH),
-
-    // From: https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=9786179 (CoMeFa)
+    parameter LOGICAL_DATA_WIDTH = 8,     // Logical data width (40, 8, 4)
+    parameter LOGICAL_DEPTH = 2048,       // Logical depth (512, 2k, 4K)
+    
+    // Physical parameters from https://ieeexplore.ieee.org/document/9786179
     parameter PHYSICAL_ROWS = 128,
     parameter PHYSICAL_COLS = 160,
-    parameter COL_MUX_FACTOR = 4, //Since widest supported width is 40 bits
-    parameter PHYSICAL_ADDR_WIDTH = clog2(PHYSICAL_ROWS)
-    parameter PHYSICAL_COL_WIDTH = clog2(PHYSICAL_COLS)
-    // Should we have parameters for mode (ROM, SDP, TDP)?
+    parameter COL_MUX_FACTOR = 4          // Since widest supported width is 40 bits
 ) (
     input wire clk,
+    input wire rst,
     
     // Port A
-    input wire [LOGICAL_ADDR_WIDTH-1:0] addr_a,
+    input wire [$clog2(LOGICAL_DEPTH)-1:0] addr_a,
     input wire [LOGICAL_DATA_WIDTH-1:0] data_in_a,
     input wire wen_a,
     input wire ren_a,
     output reg [LOGICAL_DATA_WIDTH-1:0] data_out_a,
     
-    input wire [LOGICAL_ADDR_WIDTH-1:0] addr_b,
+    // Port B
+    input wire [$clog2(LOGICAL_DEPTH)-1:0] addr_b,
     input wire [LOGICAL_DATA_WIDTH-1:0] data_in_b,
     input wire wen_b,
     input wire ren_b,
     output reg [LOGICAL_DATA_WIDTH-1:0] data_out_b
 );
+
+    // Local parameters
+    localparam ADDR_WIDTH = $clog2(LOGICAL_DEPTH);
+    localparam PHYSICAL_ADDR_WIDTH = $clog2(PHYSICAL_ROWS);
+    localparam PHYSICAL_COL_WIDTH = $clog2(PHYSICAL_COLS);
     localparam LOG_TO_PHYS_BITS = PHYSICAL_COLS / LOGICAL_DATA_WIDTH;
 
-    // 2D array of SRAM cells
+    // 2D array of individual SRAM cells (your original approach)
     reg cell_array [0:PHYSICAL_ROWS-1][0:PHYSICAL_COLS-1];
+    
+    // Variables for address decoding (moved to module level)
+    reg [PHYSICAL_ADDR_WIDTH-1:0] phys_row_a, phys_row_b;
+    reg [PHYSICAL_COL_WIDTH-1:0] col_start_a, col_start_b;
+    integer bit_idx_a, bit_idx_b; // Loop variables
     
     // Initialize physical memory
     initial begin
         integer row, col;
         for (row = 0; row < PHYSICAL_ROWS; row = row + 1) begin
             for (col = 0; col < PHYSICAL_COLS; col = col + 1) begin
-                physical_memory[row][col] = 1'b0;
+                cell_array[row][col] = 1'b0;
             end
         end
         data_out_a = {LOGICAL_DATA_WIDTH{1'b0}};
         data_out_b = {LOGICAL_DATA_WIDTH{1'b0}};
     end
     
-    // For accessing words, we need to convert logical addresses to physical addresses
-    function [PHYSICAL_ADDR_WIDTH:0] get_phys_row;
-        input [LOGICAL_ADDR_WIDTH-1:0] logical_row;
+    // Reset logic
+    always @(posedge clk or posedge rst) begin
+        if (rst) begin
+            data_out_a <= {LOGICAL_DATA_WIDTH{1'b0}};
+            data_out_b <= {LOGICAL_DATA_WIDTH{1'b0}};
+        end
+    end
+    
+    // Address mapping functions - your original logic, corrected
+    function [PHYSICAL_ADDR_WIDTH-1:0] get_phys_row;
+        input [ADDR_WIDTH-1:0] logical_addr;
         begin
-            // Since we have many logical rows per physical row,
-            // Physical row = floor(logical_row / logical_rows_per_physical_row)
-            get_phys_row = logical_row/LOG_TO_PHYS_BITS;
+            // Physical row = floor(logical_addr / logical_words_per_physical_row)
+            get_phys_row = logical_addr / LOG_TO_PHYS_BITS;
         end
     endfunction
     
-    // We need to find the starting physical column for a logical word
-    function [PHYSICAL_COL_WIDTH:0] get_phys_col;
-        input [LOGICAL_ADDR_WIDTH-1:0] logical_addr;
+    // Find the starting physical column for a logical word
+    function [PHYSICAL_COL_WIDTH-1:0] get_phys_col;
+        input [ADDR_WIDTH-1:0] logical_addr;
         begin
-            get_phys_col = logical_addr % LOG_TO_PHYS_BITS;
+            // Column start = (logical_addr % words_per_row) * logical_data_width
+            get_phys_col = (logical_addr % LOG_TO_PHYS_BITS) * LOGICAL_DATA_WIDTH;
         end
     endfunction
     
-    // Port A access logic
+    // Port A access logic (your original approach, fixed)
     always @(posedge clk) begin
-        if (write_en_a || read_en_a) begin
-            // Decode logical address to physical coordinates
-            reg [6:0] phys_row;
-            reg [7:0] col_start;
-            integer bit_idx;
-            
-            phys_row = get_physical_row(addr_a);
-            col_start = get_col_start(addr_a);
-            
-            if (write_en_a) begin
-                // Write logical data to physical memory
-                for (bit_idx = 0; bit_idx < LOGICAL_DATA_WIDTH; bit_idx = bit_idx + 1) begin
-                    if ((col_start + bit_idx) < PHYSICAL_COLS) begin
-                        physical_memory[phys_row][col_start + bit_idx] <= data_in_a[bit_idx];
+        if (rst_n) begin
+            if (wen_a | ren_a) begin
+                // Decode logical address to physical coordinates
+                phys_row_a = get_phys_row(addr_a);
+                col_start_a = get_phys_col(addr_a);
+                
+                if (wen_a) begin
+                    // Write logical data to individual physical cells
+                    for (bit_idx_a = 0; bit_idx_a < LOGICAL_DATA_WIDTH; bit_idx_a = bit_idx_a + 1) begin
+                        if ((col_start_a + bit_idx_a) < PHYSICAL_COLS) begin
+                            cell_array[phys_row_a][col_start_a + bit_idx_a] <= data_in_a[bit_idx_a];
+                        end
                     end
                 end
-            end
-            
-            if (read_en_a) begin
-                // Read logical data from physical memory
-                for (bit_idx = 0; bit_idx < LOGICAL_DATA_WIDTH; bit_idx = bit_idx + 1) begin
-                    if ((col_start + bit_idx) < PHYSICAL_COLS) begin
-                        data_out_a[bit_idx] <= physical_memory[phys_row][col_start + bit_idx];
-                    end else begin
-                        data_out_a[bit_idx] <= 1'b0; // Padding for out-of-bounds
+                
+                if (ren_a) begin
+                    // Read logical data from individual physical cells
+                    for (bit_idx_a = 0; bit_idx_a < LOGICAL_DATA_WIDTH; bit_idx_a = bit_idx_a + 1) begin
+                        if ((col_start_a + bit_idx_a) < PHYSICAL_COLS) begin
+                            data_out_a[bit_idx_a] <= cell_array[phys_row_a][col_start_a + bit_idx_a];
+                        end else begin
+                            data_out_a[bit_idx_a] <= 1'b0; // Default to 0 for out-of-bounds
+                        end
                     end
                 end
             end
         end
     end
     
-    // Port B access logic (similar to Port A)
+    // Port B access logic (identical to Port A because of naive dual-port)
     always @(posedge clk) begin
-        if (write_en_b || read_en_b) begin
-            reg [6:0] phys_row;
-            reg [7:0] col_start;
-            integer bit_idx;
-            
-            phys_row = get_physical_row(addr_b);
-            col_start = get_col_start(addr_b);
-            
-            if (write_en_b) begin
-                for (bit_idx = 0; bit_idx < LOGICAL_DATA_WIDTH; bit_idx = bit_idx + 1) begin
-                    if ((col_start + bit_idx) < PHYSICAL_COLS) begin
-                        physical_memory[phys_row][col_start + bit_idx] <= data_in_b[bit_idx];
+        if (rst_n) begin
+            if (wen_b | ren_b) begin
+                phys_row_b = get_phys_row(addr_b);
+                col_start_b = get_phys_col(addr_b);
+                
+                if (wen_b) begin
+                    // Write logical data to individual physical cells
+                    for (bit_idx_b = 0; bit_idx_b < LOGICAL_DATA_WIDTH; bit_idx_b = bit_idx_b + 1) begin
+                        if ((col_start_b + bit_idx_b) < PHYSICAL_COLS) begin
+                            cell_array[phys_row_b][col_start_b + bit_idx_b] <= data_in_b[bit_idx_b];
+                        end
                     end
                 end
-            end
-            
-            if (read_en_b) begin
-                for (bit_idx = 0; bit_idx < LOGICAL_DATA_WIDTH; bit_idx = bit_idx + 1) begin
-                    if ((col_start + bit_idx) < PHYSICAL_COLS) begin
-                        data_out_b[bit_idx] <= physical_memory[phys_row][col_start + bit_idx];
-                    end else begin
-                        data_out_b[bit_idx] <= 1'b0;
+                
+                if (ren_b) begin
+                    // Read logical data from individual physical cells
+                    for (bit_idx_b = 0; bit_idx_b < LOGICAL_DATA_WIDTH; bit_idx_b = bit_idx_b + 1) begin
+                        if ((col_start_b + bit_idx_b) < PHYSICAL_COLS) begin
+                            data_out_b[bit_idx_b] <= cell_array[phys_row_b][col_start_b + bit_idx_b];
+                        end else begin
+                            data_out_b[bit_idx_b] <= 1'b0;
+                        end
                     end
                 end
             end
         end
     end
     
-    // Debug: Display physical memory usage
-    `ifdef DEBUG_PHYSICAL
+    // Collision detection for same physical row access
+    wire collision = (wen_a || ren_a) && (wen_b || ren_b) && 
+                     (get_phys_row(addr_a) == get_phys_row(addr_b)) &&
+                     (wen_a || wen_b);  // At least one write
+    
+    // Debug: Display physical memory usage (fixed variable name)
+    `ifdef DEBUG_M20K
     always @(posedge clk) begin
-        if (write_en_a) begin
+        if (collision) begin
+            $display("WARNING: Memory collision detected at physical row %d (addr_a=%d, addr_b=%d)", 
+                     get_phys_row(addr_a), addr_a, addr_b);
+        end
+        if (wen_a) begin
             $display("Physical Write Port A: Row=%d, Col_Start=%d, Width=%d, Data=%h", 
-                     get_physical_row(addr_a), get_col_start(addr_a), LOGICAL_DATA_WIDTH, data_in_a);
+                     get_phys_row(addr_a), get_phys_col(addr_a), LOGICAL_DATA_WIDTH, data_in_a);
         end
-        if (write_en_b) begin
+        if (wen_b) begin
             $display("Physical Write Port B: Row=%d, Col_Start=%d, Width=%d, Data=%h", 
-                     get_physical_row(addr_b), get_col_start(addr_b), LOGICAL_DATA_WIDTH, data_in_b);
+                     get_phys_row(addr_b), get_phys_col(addr_b), LOGICAL_DATA_WIDTH, data_in_b);
         end
+    end
+    `endif
+
+    // Assertions for verification
+    `ifdef FORMAL
+    always @(posedge clk) begin
+        // Check that logical addresses are within bounds
+        if (wen_a || ren_a) 
+            assert(addr_a < LOGICAL_DEPTH) else $error("Port A address out of bounds");
+        if (wen_b || ren_b) 
+            assert(addr_b < LOGICAL_DEPTH) else $error("Port B address out of bounds");
+            
+        // Check that physical addresses are within bounds
+        if (wen_a || ren_a)
+            assert(get_phys_row(addr_a) < PHYSICAL_ROWS) else $error("Physical row A out of bounds");
+        if (wen_b || ren_b)
+            assert(get_phys_row(addr_b) < PHYSICAL_ROWS) else $error("Physical row B out of bounds");
+            
+        // Check that column access is within bounds
+        if (wen_a || ren_a)
+            assert((get_phys_col(addr_a) + LOGICAL_DATA_WIDTH) <= PHYSICAL_COLS) 
+                else $error("Physical column A access out of bounds");
+        if (wen_b || ren_b)
+            assert((get_phys_col(addr_b) + LOGICAL_DATA_WIDTH) <= PHYSICAL_COLS) 
+                else $error("Physical column B access out of bounds");
     end
     `endif
 
