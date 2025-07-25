@@ -86,7 +86,7 @@ module m20k_bram_core #(
     
     // Port A access logic (your original approach, fixed)
     always @(posedge clk) begin
-        if (rst_n) begin
+        if (!rst) begin
             if (wen_a | ren_a) begin
                 // Decode logical address to physical coordinates
                 phys_row_a = get_phys_row(addr_a);
@@ -117,7 +117,7 @@ module m20k_bram_core #(
     
     // Port B access logic (identical to Port A because of naive dual-port)
     always @(posedge clk) begin
-        if (rst_n) begin
+        if (!rst) begin
             if (wen_b | ren_b) begin
                 phys_row_b = get_phys_row(addr_b);
                 col_start_b = get_phys_col(addr_b);
