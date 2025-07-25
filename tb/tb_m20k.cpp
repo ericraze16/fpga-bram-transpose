@@ -59,17 +59,25 @@ int main() {
     // Ensure data out is 0
     tester.dut_reset();
 
-    // Write a val
+    // Write a val on phys row 1 (col 0-7)
     tester.dut->addr_a = 0;
-    tester.dut->data_in_a = 12; // random value 
+    tester.dut->data_in_a = 0xAA; // random value 
     tester.dut->wen_a = 1;
     tester.dut->ren_a = 0; 
+    tester.tick();
+    // write a val on phys row 1 (col 8-15)
+    tester.dut->addr_a = 1;
+    tester.dut->data_in_a = 0xBB; // another random value
     tester.tick();
     tester.dut->wen_a = 0;
 
     // Read back the value
     tester.dut->ren_a = 1;    
     tester.dut->addr_a = 0; // Read from the same address
+    tester.tick();
+    tester.tick();
+    std::cout << "Read data: 0x"<< std::hex << static_cast<unsigned int>(tester.dut->data_out_a) << std::dec << std::endl;
+    tester.dut->addr_a = 1; // Read from the next address
     tester.tick();
     tester.tick();
     std::cout << "Read data: 0x"<< std::hex << static_cast<unsigned int>(tester.dut->data_out_a) << std::dec << std::endl;
