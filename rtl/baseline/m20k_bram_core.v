@@ -2,7 +2,9 @@
 // Supports dual port true dual-port mode
 // Supports set of logical widths
 // Physical organization: 128 rows × 160 columns (individual bit cells)
-// 
+
+// What happens when:
+// write to the same address over both ports?
 
 module m20k_bram_core #(
     // Logical configuration parameters
@@ -38,13 +40,25 @@ module m20k_bram_core #(
     localparam PHYSICAL_COL_WIDTH = $clog2(PHYSICAL_COLS);
     localparam LOG_TO_PHYS_BITS = PHYSICAL_COLS / LOGICAL_DATA_WIDTH;
 
-    // 2D array of individual SRAM cells (your original approach)
+    // 2D array of individual SRAM cells 
     reg cell_array [0:PHYSICAL_ROWS-1][0:PHYSICAL_COLS-1];
     
-    // Variables for address decoding (moved to module level)
+    // Variables for address decoding 
     reg [PHYSICAL_ADDR_WIDTH-1:0] phys_row_a, phys_row_b;
     reg [PHYSICAL_COL_WIDTH-1:0] col_start_a, col_start_b;
     integer bit_idx_a, bit_idx_b; // Loop variables
+
+    // Registerd inputs
+    // Port A
+    reg [$clog2(LOGICAL_DEPTH)-1:0] r_addr_a;
+    reg [LOGICAL_DATA_WIDTH-1:0] r_data_in_a;
+    reg r_wen_a;
+    reg r_ren_a;
+    // Port B
+    reg [$clog2(LOGICAL_DEPTH)-1:0] r_addr_b;
+    reg [LOGICAL_DATA_WIDTH-1:0] r_data_in_b;
+    reg r_wen_b;
+    reg r_ren_b;
     
     // Initialize physical memory
     initial begin
@@ -61,8 +75,31 @@ module m20k_bram_core #(
     // Reset logic
     always @(posedge clk or posedge rst) begin
         if (rst) begin
+            // Reset outputs and registered inputs
             data_out_a <= {LOGICAL_DATA_WIDTH{1'b0}};
             data_out_b <= {LOGICAL_DATA_WIDTH{1'b0}};
+
+            r_addr_a <= {ADDR_WIDTH{1'b0}};
+            r_data_in_a <= {LOGICAL_DATA_WIDTH{1'b0}};
+            r_wen_a <= 1'b0;
+            r_ren_a <= 1'b0;
+
+            r_addr_b <= {ADDR_WIDTH{1'b0}};
+            r_data_in_b <= {LOGICAL_DATA_WIDTH{1'b0}};
+            r_wen_b <= 1'b0;
+            r_ren_b <= 1'b0;
+        end
+        else begin
+            // Register inputs
+            r_addr_a <= addr_a;
+            r_data_in_a <= data_in_a;
+            r_wen_a <= wen_a;
+            r_ren_a <= ren_a;
+
+            r_addr_b <= addr_b;
+            r_data_in_b <= data_in_b;
+            r_wen_b <= wen_b;
+            r_ren_b <= ren_b;
         end
     end
     
@@ -87,21 +124,21 @@ module m20k_bram_core #(
     // Port A access logic (your original approach, fixed)
     always @(posedge clk) begin
         if (!rst) begin
-            if (wen_a | ren_a) begin
+            if (r_wen_a | r_ren_a) begin
                 // Decode logical address to physical coordinates
-                phys_row_a = get_phys_row(addr_a);
-                col_start_a = get_phys_col(addr_a);
+                phys_row_a = get_phys_row(r_addr_a);
+                col_start_a = get_phys_col(r_addr_a);
                 
-                if (wen_a) begin
+                if (r_wen_a) begin
                     // Write logical data to individual physical cells
                     for (bit_idx_a = 0; bit_idx_a < LOGICAL_DATA_WIDTH; bit_idx_a = bit_idx_a + 1) begin
                         if ((col_start_a + bit_idx_a) < PHYSICAL_COLS) begin
-                            cell_array[phys_row_a][col_start_a + bit_idx_a] <= data_in_a[bit_idx_a];
+                            cell_array[phys_row_a][col_start_a + bit_idx_a] <= r_data_in_a[bit_idx_a];
                         end
                     end
                 end
                 
-                if (ren_a) begin
+                if (r_ren_a) begin
                     // Read logical data from individual physical cells
                     for (bit_idx_a = 0; bit_idx_a < LOGICAL_DATA_WIDTH; bit_idx_a = bit_idx_a + 1) begin
                         if ((col_start_a + bit_idx_a) < PHYSICAL_COLS) begin
@@ -118,11 +155,11 @@ module m20k_bram_core #(
     // Port B access logic (identical to Port A because of naive dual-port)
     always @(posedge clk) begin
         if (!rst) begin
-            if (wen_b | ren_b) begin
-                phys_row_b = get_phys_row(addr_b);
-                col_start_b = get_phys_col(addr_b);
+            if (r_wen_b | r_ren_b) begin
+                phys_row_b = get_phys_row(r_addr_b);
+                col_start_b = get_phys_col(r_addr_b);
                 
-                if (wen_b) begin
+                if (r_wen_b) begin
                     // Write logical data to individual physical cells
                     for (bit_idx_b = 0; bit_idx_b < LOGICAL_DATA_WIDTH; bit_idx_b = bit_idx_b + 1) begin
                         if ((col_start_b + bit_idx_b) < PHYSICAL_COLS) begin
@@ -131,7 +168,7 @@ module m20k_bram_core #(
                     end
                 end
                 
-                if (ren_b) begin
+                if (r_ren_b) begin
                     // Read logical data from individual physical cells
                     for (bit_idx_b = 0; bit_idx_b < LOGICAL_DATA_WIDTH; bit_idx_b = bit_idx_b + 1) begin
                         if ((col_start_b + bit_idx_b) < PHYSICAL_COLS) begin
@@ -145,30 +182,30 @@ module m20k_bram_core #(
         end
     end
     
-    // Collision detection for same physical row access
-    wire collision = (wen_a || ren_a) && (wen_b || ren_b) && 
-                     (get_phys_row(addr_a) == get_phys_row(addr_b)) &&
-                     (wen_a || wen_b);  // At least one write
+    // Conservative assumption: for now, assume diff logical address on same physical row is a collision
+    reg collision = (r_wen_a | r_ren_a) && (r_wen_b | r_ren_b) && 
+                     (get_phys_row(r_addr_a) == get_phys_row(r_addr_b)) &&
+                     (r_wen_a | r_wen_b);  // At least one write
     
-    // Debug: Display physical memory usage (fixed variable name)
+    // Debug: print registered inputs and collision status
     `ifdef DEBUG_M20K
     always @(posedge clk) begin
         if (collision) begin
             $display("WARNING: Memory collision detected at physical row %d (addr_a=%d, addr_b=%d)", 
-                     get_phys_row(addr_a), addr_a, addr_b);
+                     get_phys_row(r_addr_a), r_addr_a, r_addr_b);
         end
-        if (wen_a) begin
+        if (r_wen_a) begin
             $display("Physical Write Port A: Row=%d, Col_Start=%d, Width=%d, Data=%h", 
-                     get_phys_row(addr_a), get_phys_col(addr_a), LOGICAL_DATA_WIDTH, data_in_a);
+                     get_phys_row(r_addr_a), get_phys_col(r_addr_a), LOGICAL_DATA_WIDTH, r_data_in_a);
         end
-        if (wen_b) begin
+        if (r_wen_b) begin
             $display("Physical Write Port B: Row=%d, Col_Start=%d, Width=%d, Data=%h", 
-                     get_phys_row(addr_b), get_phys_col(addr_b), LOGICAL_DATA_WIDTH, data_in_b);
+                     get_phys_row(r_addr_b), get_phys_col(r_addr_b), LOGICAL_DATA_WIDTH, r_data_in_b);
         end
     end
     `endif
 
-    // Assertions for verification
+    // Assertions for verification - dont use registered inputs, want instant feedback on inputs
     `ifdef FORMAL
     always @(posedge clk) begin
         // Check that logical addresses are within bounds
