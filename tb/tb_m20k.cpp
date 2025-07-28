@@ -8,6 +8,13 @@
 #include <verilated.h>
 #include "Vm20k_bram_core.h"
 
+// TODO: use 64 bit types instead of 32 bit to enable testing 40 bit logical width
+
+// Change these when compiling the rtl with differnt logical widths
+const int LOG_WIDTH = 16; 
+const int LOG_DEPTH = 1024; 
+//
+
 class M20kTester {
 private:
     Vm20k_bram_core* dut;
@@ -488,15 +495,32 @@ void test_memory_configurations() {
     std::cout << "\n\n=============== TESTING MEMORY CONFIGURATIONS ===============" << std::endl;
     
     // Configuration 1: 8x2048 (default)
+    if (LOG_WIDTH == 8 && LOG_DEPTH == 2048)
     {
         std::cout << "\n### Testing 8x2048 Configuration ###" << std::endl;
         M20kTester tester_8x2048(8, 2048);
         tester_8x2048.run_core_tests();
     }
+
+    // Configuration 2: 4x4096
+    else if (LOG_WIDTH == 4 && LOG_DEPTH == 4096)
+    {
+        std::cout << "\n### Testing 4x4096 Configuration ###" << std::endl;
+        M20kTester tester_4x4096(4, 4096);
+        tester_4x4096.run_core_tests();
+    }
+
+    // Configuration 3: 16x1024
+    else if (LOG_WIDTH == 16 && LOG_DEPTH == 1024)
+    {
+        std::cout << "\n### Testing 16x1024 Configuration ###" << std::endl;
+        M20kTester tester_16x1024(16, 1024);
+        tester_16x1024.run_core_tests();
+    }
     
     // Note: Testing different logical configs means running verilator to recompile
-    std::cout << "\nNote: To test 40x512 and 4x4096 configurations," << std::endl;
-    std::cout << "recompile Verilog with LOGICAL_DATA_WIDTH and LOGICAL_DEPTH parameters." << std::endl;
+    std::cout << "\nNote: To test different logical configurations," << std::endl;
+    std::cout << "recompile Verilog with LOG_WIDTH and LOG_DEPTH parameters." << std::endl;
 }
 
 int main() {
