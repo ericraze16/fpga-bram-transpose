@@ -5,6 +5,8 @@
 #include <verilated.h>
 #include "Vcirculant_barrel_shifter_v2.h"
 
+// This file contains tests for the transpose engine contained at rtl/baseline/circulant_barrel_shifter_v2.v
+
 // Template-based test class for different matrix dimensions
 template<int MATRIX_DIM, int MEM_WIDTH = 8>
 class CirculantShifterTester {
@@ -340,6 +342,9 @@ public:
 };
 
 // Test runner for multiple matrix sizes
+// Note: runnings tests larger than the compiled matrix size will create funtional errors, but will not crash the testbench.
+// By default, verilator compiles a 4x4 matrix, but this can be changed by setting the MATRIX_DIM environment variable.
+// The largest matrix size currently tested in this testbench is 8x8.
 int main(int argc, char** argv) {
     // Initialize Verilator
     Verilated::commandArgs(argc, argv);

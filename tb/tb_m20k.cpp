@@ -11,9 +11,8 @@
 // TODO: use 64 bit types instead of 32 bit to enable testing 40 bit logical width
 
 // Change these when compiling the rtl with differnt logical widths
-const int LOG_WIDTH = 16; 
-const int LOG_DEPTH = 1024; 
-//
+const int LOG_WIDTH = 4; 
+const int LOG_DEPTH = 4096; 
 
 class M20kTester {
 private:
